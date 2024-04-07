@@ -1,0 +1,92 @@
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+
+def suprise_vs_precentage_of_raise(stocks_df, earning_days,Tiker_name):
+
+    results = []
+    for day in earning_days['Date']:
+        after = stocks_df[(stocks_df['Date'] >= day) & (stocks_df['Date'] <= day + pd.Timedelta(days=7))]
+        before = stocks_df[(stocks_df['Date'] <= day - pd.Timedelta(days=1)) & (stocks_df['Date'] >= day - pd.Timedelta(days=8))]
+        after_mean = after['High'].mean()
+        before_mean = before['High'].mean()
+        High = stocks_df.loc[stocks_df['Date'] == day, 'High'].values[0]
+        # print(after_mean)
+        # print(before_mean)
+        result = {'Date': day, 'After_mean': after_mean, 'Before_mean': before_mean, 'High' : High}
+        results.append(result)
+
+    result_df = pd.DataFrame(results)
+
+    merged_df = pd.merge(result_df, earning_days, how='left', on='Date')
+
+    # print(merged_df)
+    plt.style.use('seaborn-v0_8-colorblind')
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
+    ax1.plot(merged_df['Date'], (merged_df['After_mean'] - merged_df['Before_mean']) / merged_df['After_mean'],
+             label='Week after - Week before')
+    ax1.plot(merged_df['Date'], merged_df['Surprise(%)'], label='Suprise')
+    ax1.legend()
+    ax1.set_ylabel('% of change & % of suprize')
+    ax1.set_xlabel('Earning day')
+
+    title_text= 'Stock Data of: '+ Tiker_name
+    ax1.set_title(title_text)
+
+    stocks_df= stocks_df[stocks_df['Date']>= merged_df['Date'].iloc[-1]]
+    ax2.scatter(merged_df['Date'],merged_df['High'], label= 'Earning Day',s=75, color='m')
+    ax2.plot(stocks_df['Date'],stocks_df['High'] )
+    corry = merged_df['Surprise(%)'].corr(
+        (merged_df['After_mean'] - merged_df['Before_mean']) / merged_df['After_mean'])
+    print(corry)
+    plt.show()
+    stock_with_earning_earning_days_plot(merged_df)
+   #stocks_df.to_csv('out.csv')
+    return()
+
+def beat_per(earning_days):
+
+    precent = (earning_days['Surprise(%)']>=0).sum() / len(earning_days) *100
+    return(precent)
+
+def stock_with_earning_earning_days_plot(merged_stocks):
+    print(merged_stocks.columns)
+    return()
+
+
+
+
+
+
+month_num = input('Enter the number of months you like to check:  ')
+month_int = int(month_num)
+month_str= month_num+'mo'
+
+Tiker_name = input('Enter the Ticker name you like to check:  ')
+
+# msft = yf.Ticker("MSFT")
+Tiker = yf.Ticker(Tiker_name)
+# get all stock info
+Tiker.info
+
+# get historical market data
+df = pd.DataFrame(Tiker.history(period=month_str))
+df = df.reset_index()
+
+# Show future and historic earnings dates
+earning_days = Tiker.get_earnings_dates(limit=round(month_int/4)+7)
+#clean the data and drop the time zone
+earning_days = earning_days.dropna()
+earning_days = earning_days.reset_index()
+earning_days['Date'] = earning_days['Earnings Date'].dt.date
+
+#drop the time zone
+df['Date'] = pd.to_datetime(df['Date'])
+df['Date'] = df['Date'].dt.date
+
+
+suprise_vs_precentage_of_raise(df,earning_days,Tiker_name)
+print(beat_per(earning_days))
